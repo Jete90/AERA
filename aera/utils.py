@@ -138,4 +138,4 @@ def get_base_df():
     df = df[['rf_non_co2', 'non_co2_emission', 'lu_emission',
              'ff_emission', 'temp', 'co2_conc','n2o_conc']]
 
-    return df.loc[MIN_YEAR:MAX_YEAR]
+    return df.loc[MIN_YEAR:2499]
