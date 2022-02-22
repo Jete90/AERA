@@ -87,7 +87,7 @@ def get_base_df():
     """
     data_dir = Path(aera.__file__).parent / 'data'
     rf_non_co2_file = data_dir / 'nonco2_rf_ssp126_v1.dat'
-    non_co2_emission_file = data_dir / 'nonco2_emis_ssp126_v2.dat'
+    non_co2_emission_file = data_dir / 'nonco2_emis_ssp126_v3.dat'
     lu_emission_file = data_dir / 'lu_emis_ssp126_bern3d_adj_GCB2020_v1.dat'
     ff_emission_file = data_dir / 'co2_ff_GCP_plus_NDC_v1.dat'
     n2o_conc_file = data_dir / 'n2o_conc_ssp126_v1.dat'
@@ -138,4 +138,4 @@ def get_base_df():
     df = df[['rf_non_co2', 'non_co2_emission', 'lu_emission',
              'ff_emission', 'temp', 'co2_conc','n2o_conc']]
 
-    return df.loc[MIN_YEAR:MAX_YEAR]
+    return df.loc[MIN_YEAR:2499]
