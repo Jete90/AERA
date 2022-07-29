@@ -382,7 +382,7 @@ def get_adaptive_emissions(
 
     # Calculate the future emission curves
     ec = emission_curve.EmissionCurve.get_cheapest_curve(
-        s_total_emission, year_x, reb, slope_tm1, previous_slope)
+        s_total_emission, year_x, reb, slope_tm1, temp_target_rel, previous_slope)
 
     # Add 5 (arbitrary number) years more to extand the emission curve
     # further in case of extrapolation problems if models need
