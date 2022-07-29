@@ -183,7 +183,7 @@ class EmissionCurve:
 
     @classmethod
     def get_cheapest_curve(
-            cls, s_total_emission, year_x, reb, slope_tm1,
+            cls, s_total_emission, year_x, reb, slope_tm1, tem_tar,
             previous_slope=None):
         """Factory method to get the best emission curve.
 
@@ -203,6 +203,7 @@ class EmissionCurve:
             reb (float): Remaining emission budget until the target
                 temperature is reached in Pg C.
             slope_tm1 (float): Slope of emission curve in year_x-1
+            tem_tar: Relative temperature target
 
         Returns:
             emission_curve (EmissionCurve): Optimal emission curve.
@@ -228,10 +229,17 @@ class EmissionCurve:
         # to 'squeeze' the REB into a short period of time. When the 
         # REB and emissions are small, the maximum length is relatively
         # short to avoid that a few Pg C are distributed on 250 years.
+        # In addition, the polynom length is extended if the REB is 
+        # larger than 500 years, i.e., the temperature target is still
+        # far away from the anthropogenic warming. To avoid an increase
+        # in emissions to get faster to the temperatures, the polynom
+        # length is extended by one year for each 5 Pg C that exceed
+        # 500 Pg C.
       
         target_year_rel_min = 5
 
         reb_tmp = cp.deepcopy(reb)
+        reb_tmp2 = cp.deepcopy(reb)
         d_tmp = cp.deepcopy(d)
 
         if reb_tmp * d_tmp < 0:
@@ -243,9 +251,17 @@ class EmissionCurve:
         reb_tmp = np.abs(reb_tmp) - 30
         if reb_tmp < 0:
             reb_tmp = 0
+            
+        reb_tmp2 = reb_tmp2 - 500
+        
+        if reb_tmp2 < 0:
+            reb_tmp2 = 0
+            
+        if tem_tar<=2.0:
+            reb_tmp2 = 0
 
         # Variable length of polynom dependend on REB and present day emissions
-        target_year_rel_max = 30 + int(90 * np.exp(-np.abs(reb_tmp) / 50.0)) + int(np.abs(d_tmp)**2)
+        target_year_rel_max = 30 + int(90 * np.exp(-np.abs(reb_tmp) / 50.0)) + int(np.abs(d_tmp)**2) + reb_tmp2/5.0
 
         # The max and min of the rate of change are chosen so large that
         # they will very likely never appear and hence cover the entire range
