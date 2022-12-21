@@ -68,10 +68,6 @@ AERA_DATA_DIR = PROJECT_DIR / 'aera_data'
 # starts.
 MODEL_START_YEAR = 1861
 
-# Model CO2 preindustrial: Defines the preindustrial CO2 concentration
-# in units of ppm in the ESM.
-MODEL_CO2_PREINDUSTRIAL = 286.32
-
 # Enable/Disable output of debug information
 DEBUG = True
 
@@ -113,18 +109,16 @@ YEAR_EMISSION_FILE = AERA_DIR / 'emission_pattern_1Pg_1year.nc'
 df = aera.get_base_df()
 
 # This dataframe contains the following columns
-# - rf_non_co2
 # - non_co2_emission
 # - ff_emission
 # - lu_emission
 # - temp
-# - co2_conc
 # The index of the dataframe is "year".
 #
-# TODO(2): The columns ff_emission, temp, and co2_conc MUST be provided
+# TODO(2): The columns ff_emission and temp MUST be provided
 #       (i.e. the data in the dataframe in these columns must be set)
-# TODO(2) (optional): The 'standard' data in the columns rf_non_co2,
-#       non_co2_emission, and lu_emission should also be provided if
+# TODO(2) (optional): The 'standard' data in the columns
+#       non_co2_emission and lu_emission should also be provided if
 #       model-specific time series are available.
 #
 # Note: For all these time series except ff_emission, data from
@@ -142,22 +136,19 @@ df = aera.get_base_df()
 #
 # This could look something like:
 # df['temp'].loc[MODEL_START_YEAR:YEAR_X] =
-# df['co2_conc'].loc[MODEL_START_YEAR:YEAR_X] =
 # df['ff_emission'].loc[2026:YEAR_X] =
-# (optional): df['rf_non_co2'].loc[MODEL_START_YEAR:YEAR_X] =
 # (optional): df['non_co2_emission'].loc[MODEL_START_YEAR:YEAR_X] =
 # (optional): df['lu_emission'].loc[MODEL_START_YEAR:YEAR_X] =
 
-# SOLVED(2): In the following temperature, CO2 concentration,
+# SOLVED(2): In the following temperature,
 #       fossil fuel emission (from 2026 onward), and non-CO2
-#       emission/radiative forcing time series are loaded and
+#       emission time series are loaded and
 #       written into the dataframe "df".
 
-# Temperature and CO2 concentration data files are extracted
+# Temperature data files are extracted
 # from model output files using CDO (automatically after a year has
 # been simulated) and copied into the following directories:
 temp_data_dir = AERA_DIR / 't_ref'
-co2_data_dir = AERA_DIR / 'rrvco2'
 
 # Temperature
 ds_area = xr.open_dataset(AERA_DIR/'gfdl_esm2m_atmos_area.nc')
@@ -173,16 +164,6 @@ tref = da.values
 tref_ts = np.nansum(tref*area, axis=(1,2))/np.nansum(area)
 df['temp'].loc[MODEL_START_YEAR:YEAR_X] = tref_ts[:YEAR_X-MODEL_START_YEAR+1]
 
-# CO2 concentration
-co2_files = list(co2_data_dir.glob('rrvco2_*.nc'))
-ds = xr.open_mfdataset(co2_files)
-da = ds['rrvco2']
-# rrvco2_*.nc are daily files: Calculate the annual mean.
-da = da.groupby('time.year').mean('time')
-da = da.where(da.year <= YEAR_X, drop=True)
-co2_ts = da.values.flatten()
-df['co2_conc'].loc[MODEL_START_YEAR:YEAR_X] = co2_ts[:YEAR_X-1861+1]
-
 # Fossil fuel emission
 try:
     # Fossil fuel data is loaded directly from the CSV file
@@ -196,16 +177,7 @@ except FileNotFoundError:
         EMISSION_CSV_FILE, 'doesn\'t exist. '
         'Only emission until 2025 are available.')
 
-# We also use model-specific non-CO2 emission and radiative forcing
-# time series:
-# Non-CO2 radiative forcing
-nonco2_rf_gfdl_file = AERA_DATA_DIR / 'nonco2_rf_rcp26_gfdl.dat'
-_df_tmp = pd.read_csv(nonco2_rf_gfdl_file, sep='\t', header=None)
-_df_tmp.columns = ['year', 'data']
-df['rf_non_co2'].loc[_df_tmp.year.min():_df_tmp.year.max()] = (
-    _df_tmp.data.tolist())
-
-# Non-CO2 emission
+# We also use model-specific non-CO2 emission time series:
 nonco2_emis_gfdl_file = AERA_DATA_DIR / 'nonco2_emis_rcp26_gfdl.dat'
 _df_tmp = pd.read_csv(nonco2_emis_gfdl_file, sep='\t', header=None)
 _df_tmp.columns = ['year', 'data']
@@ -222,7 +194,6 @@ s_emission_future = aera.get_adaptive_emissions(
     temp_target_rel=REL_TEMP_TARGET,
     temp_target_type=TEMP_TARGET_TYPE,
     year_x=YEAR_X,
-    co2_preindustrial=MODEL_CO2_PREINDUSTRIAL,
     model_start_year=MODEL_START_YEAR,
     df=df,
     meta_file=AERA_DIR/f'meta_data_{YEAR_X}.nc',

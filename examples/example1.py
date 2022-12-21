@@ -48,9 +48,6 @@ YEAR_X = 2025
 # Model start year: Defines in which year the ESM historical run
 # starts.
 MODEL_START_YEAR = 1850
-# Model CO2 preindustrial: Defines the preindustrial CO2 concentration
-# in units of ppm in the ESM.
-MODEL_CO2_PREINDUSTRIAL = 278.05
 
 ###################
 # DEFINE DATA FILES
@@ -74,12 +71,10 @@ df = aera.get_base_df()
 # 2) Set the values in the respective df columns.
 ds = netCDF4.Dataset(model_output_file, 'r')
 temperature = ds.variables['ATMT_ALTI'][:].filled(np.nan)
-co2_conc = ds.variables['atmpco2'][:].filled(np.nan)
 idx = YEAR_X-2025
 if idx == 0:
     idx = None
 df['temp'].loc[1765:YEAR_X] = temperature[:idx]
-df['co2_conc'].loc[1765:YEAR_X] = co2_conc[:idx]
 df_ff_emission = pd.read_table(
     ff_emission_file, header=None, index_col=0, delim_whitespace=True)
 df_ff_emission.columns = ['ff_emission']
@@ -100,7 +95,6 @@ s_emission = aera.get_adaptive_emissions(
     temp_target_rel=TEMP_TARGET_REL,
     temp_target_type=TEMP_TARGET_TYPE,
     year_x=YEAR_X,
-    co2_preindustrial=MODEL_CO2_PREINDUSTRIAL,
     model_start_year=MODEL_START_YEAR,
     df=df,
     meta_file=meta_file,

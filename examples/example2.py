@@ -64,20 +64,14 @@ example_data_dir = Path(__file__).parent / 'example2_data'
 temp_file = (
     example_data_dir /
     'HadCRUT.5.0.1.0.analysis.summary_series.global.annual.nc')
-# Historical CO2 concentrations from Meinshausen et al. (2017) from
-# 1850-2014 and from NOAA GML from 2015 to 2020
-co2_file = (
-    example_data_dir / 'co2_conc_historical_Meinshausen2017_NOAA_GML.dat')
 # Fossil fuel CO2 emissions from GCP
 ff_emission_file = example_data_dir / 'co2_ff_GCP_plus_NDC_v1.dat'
 
 # Non-CO2 emissions as CO2-fe calculated from non-CO2 radiative
 # forcing as described in Terhaar et al. (in review)
 if NON_CO2_DATA_SOURCE == 'RCPSSP':
-    non_co2_rf_file = example_data_dir / 'nonco2_rf_ssp126_v1.dat'
     non_co2_emission_file = example_data_dir / 'nonco2_emis_ssp126_v2.dat'
 elif NON_CO2_DATA_SOURCE == 'IPCC':
-    non_co2_rf_file = example_data_dir / 'nonco2_rf_ipcc_v1.dat'
     non_co2_emission_file = example_data_dir / 'nonco2_emis_IPCC_v1.dat'
 else:
     raise ValueError
@@ -133,10 +127,6 @@ temperature = temperature+288.15
 _log_overwrite(temp_file, 'temp')
 df['temp'].loc[1850:YEAR_X] = temperature
 
-# CO2 concentration time series
-_log_overwrite(co2_file, 'co2_conc')
-df.update(_load_dat_df(co2_file, ['co2_conc']))
-
 # CO2 emissions time series
 _log_overwrite(ff_emission_file, 'ff_emission')
 df.update(_load_dat_df(ff_emission_file, ['ff_emission']))
@@ -150,14 +140,6 @@ df.update(
         )
     )
 
-# Non-CO2 radiative forcing time series
-_log_overwrite(non_co2_rf_file, 'rf_non_co2')
-df.update(
-    _load_dat_df(
-        non_co2_rf_file, ['rf_total', 'rf_co2', 'rf_non_co2'],
-        delim_whitespace=False,
-        )['rf_non_co2']
-    )
 
 # Landuse emissions time series
 _log_overwrite(lu_emission_file, 'lu_emission')
@@ -172,7 +154,6 @@ s_emission = aera.get_adaptive_emissions(
     temp_target_rel=TEMP_TARGET_REL,
     temp_target_type=TEMP_TARGET_TYPE,
     year_x=YEAR_X,
-    co2_preindustrial=MODEL_CO2_PREINDUSTRIAL,
     model_start_year=MODEL_START_YEAR,
     df=df,
     meta_file=meta_file,

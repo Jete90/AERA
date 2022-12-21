@@ -1,17 +1,17 @@
 """Core functions of the AERA algorithm.
 
 Contains the following functions:
-- calculate_anth_co2_rf : Calculates the anthropogenic
-    CO2 radiative forcing.
 - calculate_anth_temperature : Calculates the anthropogenic temperature.
 - calculate_absolute_target_temperature: Calculates the absolute target
     temperature [K].
 - calculate_remaining_emission_budget : Calculates the remaining
     emission budget (REB). The REB is the amount of CO2-fe emission that
     are still allowed to be emitted in the future.
+- extrapolated_runmean_anth_temp: Calculates the extrapolated running
+    mean of the observed/simulated temperature. Calls the functions
+    extrapolated_runmean and runmean.
 - get_adaptive_emissions : MAIN FUNCTION. Calculates "optimal"
     near-future CO2 emissions.
-
 """
 
 import copy as cp
@@ -22,7 +22,6 @@ import pandas as pd
 import xarray as xr
 from scipy.optimize import curve_fit
 
-from aera.fit import fit_anth_temperature
 from aera import constants
 from aera import utils
 from aera import io
@@ -30,10 +29,24 @@ from aera import emission_curve
 
 
 def runmean(array, winlen):
+    """Calculates a running mean of any timeseries using a window
+    length (winlen).
+
+    Args:
+        array: timeseries over which the running mean is calculated
+        winlen: window length of running mean
+    """
     return np.convolve(array, np.ones((winlen)) / winlen, mode='same')
 
 
 def extrapolated_runmean(array, winlen):
+    """Extrapolates a running mean at the beginning and end of the
+    timeseries
+
+    Args:
+        array: timeseries over which the running mean is calculated
+        winlen: window length of running mean
+    """
     array_runmean = runmean(array, winlen)
 
     # Reduce window size down to int(winlen / 2) + 1
@@ -51,16 +64,29 @@ def extrapolated_runmean(array, winlen):
 
     return array_runmean
 
-def extrapolated_runmean_anth_temp(year_x, model_start_year, df,winlen):
+def extrapolated_runmean_anth_temp(year_x, model_start_year, s_temp,winlen):
+    """Calculate an extrapolated running mean of the simulated temperature.
 
-    temp = df['temp'].loc[model_start_year:year_x]
+    Args:
+        year_x: Year of the sticktake
+        model_start_year (int): Year in which the historical
+            simulation (pre-cursor for the adaptive scenario
+            simulation) was started.
+        s_temp: Simulated termperature timeseries
+        winlen: window length of running mean for temperature fit
+
+    Returns:
+        Extrapolated running mean of the simulated temperature 
+
+    """
+    temp = s_temp.loc[model_start_year:year_x]
 
     return extrapolated_runmean(temp, winlen)
 
 
 
 def calculate_absolute_target_temperature(
-        temp_target_rel, model_start_year, df, winlen,
+        temp_target_rel, model_start_year, s_temp, winlen,
         temp_target_type, costum_anth_temp_func=None):
     """Calculate the absolute target temperature.
 
@@ -70,7 +96,7 @@ def calculate_absolute_target_temperature(
         model_start_year (int): Year in which the historical
             simulation (pre-cursor for the adaptive scenario
             simulation) was started.
-        df: pandas dataframe (from model) with all time series.
+        s_temp: Simulated termperature timeseries
         winlen: window length of running mean for temperature fit
         temp_target_type (int): Switch for different types of temperature
             targets.
@@ -86,17 +112,15 @@ def calculate_absolute_target_temperature(
 
     """
     model_start_year = max(1850, model_start_year)
-    s_temp = df['temp']
 
     if temp_target_type == 1:
         # Calculate anthropogenic warming in 2020
         if costum_anth_temp_func is None:
             temp_anth_2020 = extrapolated_runmean_anth_temp(
-            2020,model_start_year, df, winlen)[-1]
+            2020,model_start_year, s_temp, winlen)[-1]
         else:
             temp_anth_2020 = costum_anth_temp_func(
-                temp_target_rel, temp_target_type, 2020,
-                model_start_year, df,
+                2020, model_start_year, s_temp,
             )[-1]
 
         # Absolute target temperature is based on observed
@@ -213,16 +237,12 @@ def get_adaptive_emissions(
             provides a skeleton of this dataframe):
             - temp:  Global annual mean temperature time series for
               the period (in Kelvin).
-            - co2_conc: Global annual mean CO2 concentration
-              time series (in ppmv).
             - ff_emission: Global annual mean fossil fuel CO2
               emission time series (in Pg C / yr).
             - lu_emission: Global annual mean land use change
               CO2 emission time series (in Pg C / yr).
             - non_co2_emission: Global annual mean non-CO2 emission (in
               CO2-eq Pg C / yr)
-            - rf_non_co2: Global annual mean non-CO2
-              anthropogenic radiative forcing (in units TODO).
         meta_file (str or pathlib.Path): File for temporary data which
             should be transfered from one run of the AERA algorithm
             to the next.
@@ -230,11 +250,9 @@ def get_adaptive_emissions(
             Costum, user-defined function that calculates the
             anthropogenic temperature. This function is given the
             following args (same as given to `get_adaptive_emissions`):
-                - temp_target_rel
-                - temp_target_type
                 - year_x
                 - model_start_year
-                - df
+                - s_temp (timeseries of simulated temperature)
             It must return a list/numpy-array with the anthropogenic
             temperature for the years from `model_start_year` until
             the given `year_x` (in the calculation of the
@@ -262,7 +280,7 @@ def get_adaptive_emissions(
 
     # Calculate the temperature target
     temp_target_abs = calculate_absolute_target_temperature(
-        temp_target_rel, model_start_year, df, winlen,
+        temp_target_rel, model_start_year, df['temp'], winlen,
         temp_target_type=temp_target_type)
 
     # Extract the temperature time series until the time of the stocktake
@@ -271,11 +289,10 @@ def get_adaptive_emissions(
     # Extract anthropogenic warming
     if costum_anth_temp_func is None:
         s_temp_anth.loc[:] = extrapolated_runmean_anth_temp(
-            year_x,model_start_year, df, winlen)
+            year_x,model_start_year, df['temp'], winlen)
     else:
         s_temp_anth.loc[:] = costum_anth_temp_func(
-            temp_target_rel, temp_target_type, year_x,
-            model_start_year, df,
+            year_x, model_start_year, df['temp'],
         )
 
     # Extract again the temperature time series until the time of the

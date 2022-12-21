@@ -55,10 +55,6 @@ import aera
 # starts.
 MODEL_START_YEAR = 1850
 
-# Model CO2 preindustrial: Defines the preindustrial CO2 concentration
-# in units of ppm in the ESM.
-MODEL_CO2_PREINDUSTRIAL = 280
-
 # Enable/Disable output of debug information
 DEBUG = True
 
@@ -96,18 +92,16 @@ AERA_DIR = SIMULATION_DIR / 'AERA'
 df = aera.get_base_df()
 
 # This dataframe contains the following columns
-# - rf_non_co2
 # - non_co2_emission
 # - ff_emission
 # - lu_emission
 # - temp
-# - co2_conc
 # The index of the dataframe is "year".
 #
-# TODO(2): The columns ff_emission, temp, and co2_conc MUST be provided
+# TODO(2): The columns ff_emission and temp MUST be provided
 #       (i.e. the data in the dataframe in these columns must be set)
-# TODO(2) (optional): The 'standard' data in the columns rf_non_co2,
-#       non_co2_emission, and lu_emission should also be provided if
+# TODO(2) (optional): The 'standard' data in the columns
+#       non_co2_emission and lu_emission should also be provided if
 #       model-specific time series are available.
 #
 # Note: For all these time series except ff_emission, data from
@@ -125,9 +119,7 @@ df = aera.get_base_df()
 #
 # This could look something like:
 # df['temp'].loc[MODEL_START_YEAR:YEAR_X] =
-# df['co2_conc'].loc[MODEL_START_YEAR:YEAR_X] =
 # df['ff_emission'].loc[2026:YEAR_X] =
-# (optional): df['rf_non_co2'].loc[MODEL_START_YEAR:YEAR_X] =
 # (optional): df['non_co2_emission'].loc[MODEL_START_YEAR:YEAR_X] =
 # (optional): df['lu_emission'].loc[MODEL_START_YEAR:YEAR_X] =
 
@@ -141,7 +133,6 @@ s_emission_future = aera.get_adaptive_emissions(
     temp_target_rel=REL_TEMP_TARGET,
     temp_target_type=TEMP_TARGET_TYPE,
     year_x=YEAR_X,
-    co2_preindustrial=MODEL_CO2_PREINDUSTRIAL,
     model_start_year=MODEL_START_YEAR,
     df=df,
     meta_file=AERA_DIR/f'meta_data_{YEAR_X}.nc',

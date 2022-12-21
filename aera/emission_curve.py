@@ -222,19 +222,15 @@ class EmissionCurve:
         d = s_total_emission.loc[year_x]
 
         # The future emission curve needs to be at least 5 years long.
-        # The maximum is variable and depends on the emissions in the
-        # year of the stocktake and the remaining emission budget. If 
-        # the REB is large and emissions are high, a long maximum 
-        # length is allowed so that CO2-fe emissions do not increase
-        # to 'squeeze' the REB into a short period of time. When the 
-        # REB and emissions are small, the maximum length is relatively
-        # short to avoid that a few Pg C are distributed on 250 years.
-        # In addition, the polynom length is extended if the REB is 
-        # larger than 500 years, i.e., the temperature target is still
-        # far away from the anthropogenic warming. To avoid an increase
-        # in emissions to get faster to the temperatures, the polynom
-        # length is extended by one year for each 5 Pg C that exceed
-        # 500 Pg C.
+        # When the temperature target is almost reached and emissions
+        # are small, the minimum length is increased to avoid overly 
+        # strong reactions to decadal or interannual variability that 
+        # may look like an anthropogenic trend in temperatures.
+        # The maximum length is 150 years but can be extended for high
+        # temperature targets to avoid an increase in present-day 
+        # emissions to get faster to these temperatures. Thus, the 
+        # polynom length is extended by one year for each 5 Pg C that 
+        # exceed 500 Pg C.
       
         reb_tmp = cp.deepcopy(reb)
         d_tmp = cp.deepcopy(d)
@@ -247,7 +243,7 @@ class EmissionCurve:
         if reb_tmp < 0:
             reb_tmp = 0
             
-        # Variable length of polynom dependend on REB and present day emissions
+        # Variable length of polynom dependend on present day emissions
         target_year_rel_max = 150 + reb_tmp/5.0
         target_year_rel_min = 5 + int(((100-(np.abs(d_tmp)**2))/100.) * 45)        
 
