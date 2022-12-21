@@ -236,32 +236,20 @@ class EmissionCurve:
         # length is extended by one year for each 5 Pg C that exceed
         # 500 Pg C.
       
-        target_year_rel_min = 5
-
         reb_tmp = cp.deepcopy(reb)
-        reb_tmp2 = cp.deepcopy(reb)
         d_tmp = cp.deepcopy(d)
-
-        if reb_tmp * d_tmp < 0:
-            d_tmp = 0
 
         if np.abs(d_tmp) > 10:
             d_tmp = 10 * np.sign(d_tmp)
 
-        reb_tmp = np.abs(reb_tmp) - 30
+        reb_tmp = reb_tmp - 500
+        
         if reb_tmp < 0:
             reb_tmp = 0
             
-        reb_tmp2 = reb_tmp2 - 500
-        
-        if reb_tmp2 < 0:
-            reb_tmp2 = 0
-            
-        if tem_tar<=2.0:
-            reb_tmp2 = 0
-
         # Variable length of polynom dependend on REB and present day emissions
-        target_year_rel_max = 30 + int(90 * np.exp(-np.abs(reb_tmp) / 50.0)) + int(np.abs(d_tmp)**2) + reb_tmp2/5.0
+        target_year_rel_max = 150 + reb_tmp/5.0
+        target_year_rel_min = 5 + int(((100-(np.abs(d_tmp)**2))/100.) * 45)        
 
         # The max and min of the rate of change are chosen so large that
         # they will very likely never appear and hence cover the entire range

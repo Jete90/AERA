@@ -29,115 +29,38 @@ from aera import io
 from aera import emission_curve
 
 
-def calculate_anth_co2_rf(co2_conc, n2o_conc):
-    """CO2 radiative forcing (RF) time series from anth CO2 and total N2O
-    in the atmosphere.
-
-    Simplified RF from (AR6 WG1 IPCC, Table 7.SM.1).
-
-    Args:
-        co2_conc (float): Global mean CO2 concentration (volume mixing
-        ratio in units of ppm).
-        n2o_conc (float): Global mean N2O concentration (volume mixing
-        ratio in units of ppm).
-
-    """
-
-    a1 = -2.4785e-7
-    b1 = 7.5906e-4
-    c1 = -2.1492e-3
-    d1 = 5.2488
-    C0 = 277.15
-
-    Camax = C0 - (b1/(2*a1))
-
-    co2_conc_ts = co2_conc.loc[1700:2499].values
-    n2o_conc_ts = n2o_conc.loc[1700:2499].values
-    length = co2_conc_ts.shape[0]
-    
-    # Calculate alpha for the pure CO2 effect
-
-    alpha = np.zeros(length)
-
-    for i in range(length):
-        if np.isnan(co2_conc_ts[i]) == 0:
-            if co2_conc_ts[i] > Camax:
-                alpha[i] = d1 - ( (b1**2) / (4*a1) )
-            elif co2_conc_ts[i] <= Camax:
-                if co2_conc_ts[i] >= C0:
-                    alpha[i] = d1 + a1 * ((co2_conc_ts[i]-C0)**2) + b1 * (co2_conc_ts[i]-C0)
-                elif co2_conc_ts[i] < C0:
-                    alpha[i] = d1
-        else:
-            alpha[i] = np.nan
-
-    # Calculate the alpha for the CO2 and N2O overlap
-    
-    alpha_n2o = np.zeros(length)
-
-    for i in range(length):
-        if np.isnan(n2o_conc_ts[i]) == 0:
-            alpha_n2o[i] = c1 * np.sqrt(n2o_conc_ts[i])
-        else:
-            alpha_n2o[i] = np.nan
-
-    # Calculate the RF for both alphas
-    
-    RF_CO2 = np.zeros(length)
-    RF_N2O = np.zeros(length)
-
-    for i in range(length):
-        if np.isnan(co2_conc_ts[i]) == 0:
-            RF_CO2[i] = alpha[i] * np.log(co2_conc_ts[i]/C0)
-        else:
-            RF_CO2[i] = np.nan
-
-        if np.isnan(n2o_conc_ts[i]) == 0:
-            RF_N2O[i] = alpha_n2o[i] * np.log(co2_conc_ts[i]/C0)
-        else:
-            RF_N2O[i] = np.nan
-
-    # Return the total CO2 RF multiplied by the ERF adjustment from IPCC AR6 CH7
-
-    return 1.05 * (RF_CO2 + RF_N2O)
+def runmean(array, winlen):
+    return np.convolve(array, np.ones((winlen)) / winlen, mode='same')
 
 
-def calculate_anth_temperature(rf_total, temp):
-    """Anthropogenic temperature from total anthropogenic radiative
-    forcing.
+def extrapolated_runmean(array, winlen):
+    array_runmean = runmean(array, winlen)
 
-    Args:
-        rf_total (array-like): Time series ot total anthropogenic
-            radiative forcing (CO2+nonCO2).
-        temp (array-like): Time series of global mean surface
-            air temperature.
+    # Reduce window size down to int(winlen / 2) + 1
+    # for the first int(winlen / 2) elements.
+    array_runmean[:int(winlen / 2)] = np.array([
+        np.mean(array[:int(winlen / 2) + i + 1])
+        for i in range(int(winlen / 2))
+    ])
 
-    Returns:
-        temp_anth (array-like): Anthropogenic global mean surface
-            air temperature.
+    # Replace the last int(winlen / 2) elements by a linear extrapolation.
+    array_runmean[-int(winlen / 2):] =\
+        array_runmean[-int(winlen / 2) - 1]\
+        + np.polyfit(np.arange(winlen), array[-winlen:], deg=1)[0]\
+        * np.arange(1, int(winlen / 2) + 1)
 
-    """
-    temp_params, _ = curve_fit(
-        fit_anth_temperature,
-        rf_total,
-        temp,
-        # Initial guess for paramaters
-        p0=[287.1, 0.5, 0.3, 0.5, 2., 300., 22.],
-        # Upper and lower boundaries of [absolute temperature,
-        # correlation factor between T and realized RF impulse,
-        # relative contribution of timescale 1, relative contribution
-        # of timescale 2, timescale 1 in years, timescale 2,
-        # timescale 3)
-        bounds=(
-            [284., 0., 0.2, 0.3, 1.5, 100., 15.],
-            [306., 5., 0.4, 0.5, 2.0, 600., 30.]
-        )
-    )
-    return fit_anth_temperature(rf_total, *temp_params)
+    return array_runmean
+
+def extrapolated_runmean_anth_temp(year_x, model_start_year, df,winlen):
+
+    temp = df['temp'].loc[model_start_year:year_x]
+
+    return extrapolated_runmean(temp, winlen)
+
 
 
 def calculate_absolute_target_temperature(
-        temp_target_rel, model_start_year, s_rf_total, s_temp,
+        temp_target_rel, model_start_year, df, winlen,
         temp_target_type, costum_anth_temp_func=None):
     """Calculate the absolute target temperature.
 
@@ -147,9 +70,8 @@ def calculate_absolute_target_temperature(
         model_start_year (int): Year in which the historical
             simulation (pre-cursor for the adaptive scenario
             simulation) was started.
-        s_rf_total (pd.Series): Total (anth) radiative forcing
-            time series.
-        s_temp (pd.Series): Temperature (from model) time series.
+        df: pandas dataframe (from model) with all time series.
+        winlen: window length of running mean for temperature fit
         temp_target_type (int): Switch for different types of temperature
             targets.
             - 1: Temperature target estimated by observed remaining
@@ -164,17 +86,16 @@ def calculate_absolute_target_temperature(
 
     """
     model_start_year = max(1850, model_start_year)
+    s_temp = df['temp']
 
     if temp_target_type == 1:
         # Calculate anthropogenic warming in 2020
         if costum_anth_temp_func is None:
-            temp_anth_2020 = calculate_anth_temperature(
-               s_rf_total.loc[model_start_year:2020].values,
-               s_temp.loc[model_start_year:2020].values,
-            )[-1]
+            temp_anth_2020 = extrapolated_runmean_anth_temp(
+            2020,model_start_year, df, winlen)[-1]
         else:
             temp_anth_2020 = costum_anth_temp_func(
-                temp_target_rel, temp_target_type, 2020, co2_preindustrial,
+                temp_target_rel, temp_target_type, 2020,
                 model_start_year, df,
             )[-1]
 
@@ -260,7 +181,7 @@ def calculate_remaining_emission_budget(
 
 
 def get_adaptive_emissions(
-        temp_target_rel, temp_target_type, year_x, co2_preindustrial,
+        temp_target_rel, temp_target_type, year_x,
         model_start_year, df, meta_file, costum_anth_temp_func=None):
     """Calculate "optimal" near-future CO2 emissions.
 
@@ -284,8 +205,6 @@ def get_adaptive_emissions(
                  warming anomaly with the reference period 1850-1900
         year_x (int): Current year in which the emissions for the next
             five years should be calculated.
-        co2_preindustrial (float): Mean pre-industrial atmospheric CO2
-            concentration (in ppmv).
         model_start_year (int): Year in which the historical
             simulation (pre-cursor for the adaptive scenario simulation)
             was started.
@@ -314,7 +233,6 @@ def get_adaptive_emissions(
                 - temp_target_rel
                 - temp_target_type
                 - year_x
-                - co2_preindustrial
                 - model_start_year
                 - df
             It must return a list/numpy-array with the anthropogenic
@@ -335,29 +253,28 @@ def get_adaptive_emissions(
         1850, model_start_year)
     utils.validate_df(df, year_x, model_start_year)
 
+
     total_emission_cols = ['ff_emission', 'lu_emission', 'non_co2_emission']
     s_total_emission = df[total_emission_cols].sum(skipna=True, axis=1)
-    # Calculate radiative forcing from CO2 only
-    s_rf_co2 = calculate_anth_co2_rf(df['co2_conc'], df['n2o_conc'])
-    # Add nonCO2 RF to get total radiative forcing
-    s_rf_total = df['rf_non_co2'] + s_rf_co2
+
+    # Define window length for extrapolated running mean
+    winlen = 31
 
     # Calculate the temperature target
     temp_target_abs = calculate_absolute_target_temperature(
-        temp_target_rel, model_start_year, s_rf_total, df['temp'],
+        temp_target_rel, model_start_year, df, winlen,
         temp_target_type=temp_target_type)
 
     # Extract the temperature time series until the time of the stocktake
     s_temp_anth = df['temp'].loc[model_start_year:year_x].copy()
+    
     # Extract anthropogenic warming
     if costum_anth_temp_func is None:
-        s_temp_anth.loc[:] = calculate_anth_temperature(
-            s_rf_total.loc[model_start_year:year_x].values,
-            df['temp'].loc[model_start_year:year_x].values,
-        )
+        s_temp_anth.loc[:] = extrapolated_runmean_anth_temp(
+            year_x,model_start_year, df, winlen)
     else:
         s_temp_anth.loc[:] = costum_anth_temp_func(
-            temp_target_rel, temp_target_type, year_x, co2_preindustrial,
+            temp_target_rel, temp_target_type, year_x,
             model_start_year, df,
         )
 
