@@ -86,7 +86,7 @@ def extrapolated_runmean_anth_temp(year_x, model_start_year, s_temp, winlen):
         Extrapolated running mean of the simulated temperature 
 
     """
-    temp = s_temp.loc[model_start_year:year_x]
+    temp = np.array(s_temp.loc[model_start_year:year_x])
 
     return extrapolated_runmean(temp, winlen)
 
