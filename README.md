@@ -14,12 +14,9 @@ temperature increases.
 ## Overview of the algorithm
 See Terhaar et al. (2022) for more details.
 1. Calculate the anthropogenic warming for the model using
-   the simulated temperature, atmospheric CO2, and past radiative 
-   forcing from non-CO2 agents. Based on that warming, determine the 
+   the simulated temperature. Based on that warming, determine the 
    allowed remaining temperature increase until the temperature
-   target is reached. Anthropogenic warming is the increase in 
-   GMST due to anthropogenic radiative 
-   forcing.
+   target is reached. 
 2. Calculate the past CO2-fe emissions from CO2 and non-CO2 radiative
    agents. Estimate the Transient climate response to cumulative carbon 
    emissions (TCRE) based on the anthrophogenic warming and the cumulative
