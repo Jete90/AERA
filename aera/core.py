@@ -40,8 +40,15 @@ def runmean(array, winlen):
 
 
 def extrapolated_runmean(array, winlen):
-    """Extrapolates a running mean at the beginning and end of the
-    timeseries
+    """Extrapolates a running mean at the beginning and end of the 
+    time series. At the beginning, the window size is simply reduced. 
+    At the end, which is critical for the t_anth estimation at the 
+    stocktake, the running mean is linearly extrapolated. This is 
+    done by calculating the slope over the last 31 (generally winlen) 
+    years and adding a linear spline with this slope to the last 
+    valid running mean value 17 (generally int(winlen / 2) +1) years 
+    before stocktake to obtain the estimates for the last 15 
+    (generally int(winlen / 2)) years before stocktake.
 
     Args:
         array: timeseries over which the running mean is calculated
@@ -64,7 +71,7 @@ def extrapolated_runmean(array, winlen):
 
     return array_runmean
 
-def extrapolated_runmean_anth_temp(year_x, model_start_year, s_temp,winlen):
+def extrapolated_runmean_anth_temp(year_x, model_start_year, s_temp, winlen):
     """Calculate an extrapolated running mean of the simulated temperature.
 
     Args:

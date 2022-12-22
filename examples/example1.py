@@ -55,6 +55,8 @@ MODEL_START_YEAR = 1850
 example_data_dir = Path(__file__).parent / 'example1_data'
 model_output_file = example_data_dir / 'Bern3Doutput.nc'
 ff_emission_file = example_data_dir / 'co2_ff_GCP_plus_NDC_v1.dat'
+non_co2_emission_file  = example_data_dir / 'nonco2_emis_ssp126_v3.dat'
+lu_emission_file  = example_data_dir / 'lu_emis_ssp126_bern3d_v1.dat'
 
 meta_file = OUTPUT_DIRECTORY / f'meta_example1_{TIMESTAMP}.nc'
 
@@ -65,28 +67,61 @@ meta_file = OUTPUT_DIRECTORY / f'meta_example1_{TIMESTAMP}.nc'
 # the main function of the AERA algorithm.
 df = aera.get_base_df()
 
-# Manually overwrite the temperature, CO2 and fossil fuel
-# emission values in the df:
+# Manually overwrite the temperature, CO2fossil fuel
+# emissions, non-CO2 emissions, and landuse emissions 
+# in the df:
 # 1) Load the datasets
 # 2) Set the values in the respective df columns.
+
+def _log_overwrite(f, col_name):
+    print(f'Overwrite column "{col_name}" with data from {f}')
+
+def _load_dat_df(f, column_names, **read_table_kwargs):
+    """Function for reading *.dat files."""
+    read_table_kwargs1 = dict(
+            header=None, index_col=0, delim_whitespace=True)
+    read_table_kwargs1.update(read_table_kwargs)
+    df = pd.read_table(f, **read_table_kwargs1)
+    df.columns = column_names
+    df.index.name = 'year'
+    df.index = [int(x) for x in df.index.values]
+    df = df.reindex(
+        np.arange(df.index.min(), df.index.max()+1)).interpolate()
+    return df
+
+# Temperature time series
 ds = netCDF4.Dataset(model_output_file, 'r')
 temperature = ds.variables['ATMT_ALTI'][:].filled(np.nan)
 idx = YEAR_X-2025
 if idx == 0:
     idx = None
 df['temp'].loc[1765:YEAR_X] = temperature[:idx]
-df_ff_emission = pd.read_table(
-    ff_emission_file, header=None, index_col=0, delim_whitespace=True)
-df_ff_emission.columns = ['ff_emission']
-df_ff_emission.index.name = 'year'
-df_ff_emission.index = [int(x) for x in df_ff_emission.index.values]
-df_ff_emission = df_ff_emission.reindex(
-    np.arange(
-        df_ff_emission.index.min(),
-        df_ff_emission.index.max())
-    ).interpolate()
-df['ff_emission'].loc[1765:YEAR_X] = (
-    df_ff_emission.loc[1765:YEAR_X].values.flatten())
+
+# CO2 fossil fuel emissions time series
+ds = netCDF4.Dataset(model_output_file, 'r')
+ff_emis_bern3d = ds.variables['co2emis'][:].filled(np.nan)
+idx = YEAR_X-2025
+if idx == 0:
+    idx = None
+df['ff_emission'].loc[1765:YEAR_X] = ff_emis_bern3d[:idx]
+
+# Non-CO2 emissions time series
+_log_overwrite(non_co2_emission_file, 'non_co2_emission')
+df.update(
+    _load_dat_df(
+        non_co2_emission_file, ['non_co2_emission'],
+        delim_whitespace=True,
+        )
+    )
+
+# Landuse emissions time series
+_log_overwrite(lu_emission_file, 'lu_emission')
+df.update(
+    _load_dat_df(
+        lu_emission_file, ['lu_emission'],
+        delim_whitespace=True,
+        )
+    )
 
 # Now call the main AERA function `get_adaptive_emissions`.
 # For further information what parameters must be provided see

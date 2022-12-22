@@ -244,8 +244,8 @@ class EmissionCurve:
             reb_tmp = 0
             
         # Variable length of polynom dependend on present day emissions
-        target_year_rel_max = 150 + reb_tmp/5.0
-        target_year_rel_min = 5 + int(((100-(np.abs(d_tmp)**2))/100.) * 45)        
+        target_year_rel_max = int(150 + reb_tmp/5.0)
+        target_year_rel_min = int(5 + (((100-(d_tmp**2))/100.) * 45))        
 
         # The max and min of the rate of change are chosen so large that
         # they will very likely never appear and hence cover the entire range

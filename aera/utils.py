@@ -55,13 +55,14 @@ def _load_dat_df(f, column_names, delim_whitespace=False):
     return df
 
 
-def get_base_df():
+def get_base_df(
+        ):
     """Return dataframe which is used by get_adaptive_emissions.
 
-    The dataframe contains non-CO2 radiative forcing,
-    non-CO2 emission, and land use emission data provided
-    by Terhaar et al. (in prep.). This data is contained in the
-    `aera` module and can be found within the official repository.
+    The dataframe contains non-CO2 emission and land use emission 
+    data provided by Terhaar et al. (2022). This data is contained 
+    in the `aera` module and can be found within the official 
+    repository.
 
     Note: The returned pandas.DataFrame cannot be passed to
     `aera.core.get_adaptive_emissions` directly!
