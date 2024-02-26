@@ -1,6 +1,3 @@
-THE DOCUMENTATION IS CURRENTLY BEING UPDATED AND 
-SOME FILES MIGHT STILL CONTAIN OUTDATED COMMENTS!
-
 # Adaptive Emission Reduction Approach (AERA)
 
 This module implements the AERA algorithm developed
